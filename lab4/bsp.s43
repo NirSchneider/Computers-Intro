@@ -1,0 +1,48 @@
+#include "bsp.h"
+
+                MODULE    BSP
+                PUBLIC    GPIOconfig, TIMERconfig, ADCconfig
+
+                RSEG      CODE
+           
+;----------------------------------------------------------------------------------------------
+;             GPIO configuration  
+;----------------------------------------------------------------------------------------------
+GPIOconfig
+           ;PushButtons Setup
+           BIC.B   #0x0F, PBsArrPortSel
+           BIC.B   #0x0F, PBsArrPortDir
+           BIS.B   #0x03, PBsArrIntEdgeSel ;pull-up
+           ;BIC.B   #0x0c, PBsArrIntEdgeSel ;pull-down
+           BIS.B   #0x0F, PBsArrIntEn          ;maybe 0x07???
+           BIC.B   #15, PBsArrIntPend    ;clear pending interrupts
+           
+           ;Switches Setup
+           BIC.B   #0x7F, SWsArrPort
+           ;BIC.B   #0xF0, SWsArrPortSel
+           ;BIC.B   #0xF0, SWsArrPortDir
+           
+           ;LEDs Setup
+           BIC.B   #0x0F, LEDsArrPortSel  ;GPIO capability  ;maybe 0xFF???
+           BIS.B   #0xFF, LedsArrPortDir  ;output dir
+           CLR.B   LEDsArrPort             ;clear LEDs
+           
+;----------------------------------------------------------------------------------------------
+;             Timers configuration  
+;----------------------------------------------------------------------------------------------
+TIMERconfig
+          nop ; write here timers config - lab5
+          
+          ret
+ 
+;----------------------------------------------------------------------------------------------
+;             ADC configuration  
+;----------------------------------------------------------------------------------------------
+ADCconfig
+          nop ;write here adc config
+          
+          ret
+
+;----------------------------------------------------------------------------------------------
+                ENDMOD
+                END

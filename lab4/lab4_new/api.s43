@@ -1,0 +1,110 @@
+#include "bsp.h"
+
+                MODULE    API
+                PUBLIC    Binar, OneLED, PWM,PrintStr
+                EXTERN    PrintLEDs, ClrLEDs,delay_ms
+                EXTERN    delay, state
+
+                RSEG      CODE            
+;----------------------------------------------------------------------------------------------
+;             Binar counting
+;----------------------------------------------------------------------------------------------
+Binar          mov.b   #0x14, R7      
+               call    #ClrLEDs
+               push    R10            ;continue where it stopped              
+               call    #PrintLEDs
+               push    #43690            ;delay 0.5sec
+               call    #delay
+               jmp     Subloop1
+Sub1           dec.b   R7
+               jz      Q2
+               push    #1
+               call    #PrintLEDs
+               push    #43690            ;delay 0.5sec
+               call    #delay
+Subloop1       cmp.b   #0xFF,LEDsArrPort  
+               jz      Sub1
+               inc.b   LEDsArrPort
+               push    #43690            ;delay 0.5sec
+               call    #delay
+               dec.b   R7
+               jz      Q1           
+               cmp     #1,R9
+               jz      Subloop1
+               
+Q1             mov.b   LEDsArrPort,R10
+               mov     #0,R9
+               ret
+;----------------------------------------------------------------------------------------------
+;             One by one   
+;----------------------------------------------------------------------------------------------
+OneLED       mov.b   #0x0e, R7        ;14*0.5 sec = 7sec
+             push    R11              ;continue where it stopped
+             call    #PrintLEDs
+             jmp     Subloop2
+Sub2         dec.b   R7
+             jz      Q2
+             push    #1
+             call    #PrintLEDs
+             push    #43690            ;delay 0.5sec
+             call    #delay
+
+Subloop2     cmp.b   #0x80,LEDsArrPort ;check if last LED
+             jz      Sub2
+             push    #43690            ;delay 0.5sec
+             call    #delay
+             rla.b   LEDsArrPort
+             dec.b   R7
+             jz      Q2
+             cmp     #2,R9
+             jz      Subloop2
+             
+             
+Q2           mov.b   LEDsArrPort,R11   ;save where is stopped
+             mov     #0,R9
+             ret    
+;----------------------------------------------------------------------------------------------
+;             PWM - 4kHz with duty cycle 75% from P2.7OUT
+;----------------------------------------------------------------------------------------------                       
+  
+PWM         bis.b   #0x80,SWsArrPort
+            mov.b   #68,R13
+L1          dec.w   R13
+            jnz     L1
+            
+            xor.b   #0x80, SWsArrPort
+            
+            mov.b   #17,R13
+L2          dec.w   R13
+            jnz     L2  
+            
+            cmp     #3,R9
+            jz      PWM
+            cmp     #2,R9
+            jz      OneLED
+            cmp     #1,R9
+            jz      Binar
+            
+Q3          mov     #0,R9
+            ret    
+ 
+;----------------------------------------------------------------------------------------------
+;             PrintStr
+;----------------------------------------------------------------------------------------------           
+     
+     mov    #10,R10
+            pop    R4; save  ret add
+            pop    R5;  location string of name
+            pop    R6; delay amount
+L4          mov    @R5+,R7
+            push   R7
+            call   PrintLEDs
+            push   R6 
+            call   #delay_ms
+            dec    R10
+            jnz    L4 
+            push   R4
+            ret
+            
+            ENDMOD             
+               END
