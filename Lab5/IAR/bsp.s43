@@ -1,0 +1,88 @@
+#include "bsp.h"
+
+
+Lcd_cmd     MACRO command
+            call  #Delay5
+            mov.b command,&P2OUT
+            call  #Lcd_stobe
+            ENDM
+            
+                MODULE    BSP
+                PUBLIC    GPIOconfig;, TIMERconfig, ADCconfig
+                EXTERN    Delay15, Delay5, Delay02, Lcd_stobe
+                RSEG      CODE
+           
+;----------------------------------------------------------------------------------------------
+;             GPIO configuration  
+;----------------------------------------------------------------------------------------------
+GPIOconfig
+
+           BIC.B   #0xE0, LCDconPortSel
+           BIS.B   #0xE0, LCDconPortDir
+           BIC.B   #0xFF, LCDdataPortSel
+           BIS.B   #0xFF, LCDdataPortDir
+
+           BIC.B   #0xF,  PBsArrPortSel  ;pull-up
+           BIC.B   #0xF,  PBsArrPortDir
+           BIS.B   #0x3,  PBsArrIntEdgeSel  ;pull-up
+           BIC.B   #0xC,  PBsArrIntEdgeSel
+           BIS.B   #0xF0, PBsArrIntEdgeSel       
+           BIS.B   #0x0F, PBsArrIntPend       ;clear pending interrupts
+           BIC.B   #0xFF, PBsArrIntPend
+
+           
+           BIS.B   #0x10, FqPortSel
+
+
+           
+
+           
+             bic.b #0xE0,LCDconPort
+             call  #Delay15
+             mov.b #0x3f,LCDdataPort
+             call  #Lcd_stobe
+             call  #Delay5
+             mov.b #0x3f,LCDdataPort
+             call  #Lcd_stobe
+             call  #Delay02
+             mov.b #0x3f,LCDdataPort
+             call  #Lcd_stobe
+             Lcd_cmd #0x3c
+             Lcd_cmd #0x0f
+             Lcd_cmd #0x01
+             Lcd_cmd #0x06
+             Lcd_cmd #0x80
+             Lcd_cmd #0x02
+             RET
+           
+;----------------------------------------------------------------------------------------------
+;             Timers configuration  
+;----------------------------------------------------------------------------------------------
+TIMERconfig
+          mov.w  #0xFFFF,TACCR0
+          BIC    #CCIE,TACCTL0
+          mov.w  #TACLR,TACTL
+          mov    #TASSEL_2+ID_3+MC_3+TAIE,TACTL
+          
+          ret
+ 
+;----------------------------------------------------------------------------------------------
+;             TimersSetup configuration  
+;----------------------------------------------------------------------------------------------
+TIMERSetupconfig
+          mov.w  #TACLR,TA1CTL
+          mov.w  #TASSEL_2+MC_3+ID_3,TA1CTL
+          mov.w  #CM_1+SCS+CAF+CCIE,TA1CCTL2
+          
+          ret
+;----------------------------------------------------------------------------------------------
+;             ADC configuration  
+;----------------------------------------------------------------------------------------------
+ADCconfig
+          nop ;write here adc config
+          
+          ret
+
+;----------------------------------------------------------------------------------------------
+                ENDMOD
+                END

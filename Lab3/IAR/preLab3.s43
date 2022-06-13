@@ -1,0 +1,34 @@
+#include <msp430g2553.h>     ;define controlled include file
+;-------------------------------------------------------------------------------
+           ORG     0C000h                  ; Program Reset
+           PUBLIC  main
+           EXTERN  option1,option2,option3,option4
+           RSEG CSTACK ; Begins a relocatable segment name of CSTACK - Define stack segment
+           RSEG CODE ; Assemble to Flash memory 
+;-------------------------------------------------------------------------------
+RESET      MOV.W  #SFE(CSTACK),SP ; Initialize stackpointer
+StopWDT    MOV.W #WDTPW+WDTHOLD,&WDTCTL ; Stop WDT 
+Setp1      BIC.B  #0x0F,&P1DIR  ; p1 input.
+Setp2      BIS.B  #0xFF,&P2DIR  ; P2 output.
+           BIC.B  #0xC0,&P2SEL  ; only for "msp430g2553" for P2.6,P2.7 to be GPIO.
+;-------------------------------------------------------------------------------
+main       CMP.B  #0x01, &P1IN  ; check if 1.
+           JEQ    option1           
+           CMP.B  #0x02, &P1IN  ; check if  2.
+           JEQ    option2          
+           CMP.B  #0x04, &P1IN  ; check if  4.
+           JEQ    option3
+           CMP.B  #0x05, &P1IN ; check if 5
+           JEQ    option4
+           BIC.B  #0xff, &P2OUT ; turn off all light.
+           JMP    main
+
+;-------------------------------------------------------------------------------
+      
+          NOP                                ; to remove warnings
+;-------------------------------------------------------------------------------
+          COMMON  INTVEC                  ; Interrupt Vectors
+;-------------------------------------------------------------------------------
+          ORG     RESET_VECTOR            ; POR, ext. Reset
+          DW      RESET
+          END

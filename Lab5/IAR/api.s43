@@ -1,0 +1,133 @@
+#include "bsp.h"
+;----------------------------------------------------------------------------------------------
+;             DIVP
+;----------------------------------------------------------------------------------------------
+DivP           MACRO   D1,D2    
+               LOCAL   L1,L2,L3
+               mov     #17,R4
+               clr     R9            
+               mow.w   D1,R10
+               clr     R11
+               mov.w   D2,R5
+L3               
+               rla     R9            
+L1             dec     R4
+               jz      L2
+               rla     R10
+               rlc     R11
+               cmp     R5,R11
+               jlo     L3
+               sub     R10,R15
+               setc
+               rlc     R9
+               jmp     L1
+L2
+               ENDM
+               
+               
+               
+                MODULE    API
+                PUBLIC    
+                EXTERN    PrintLEDs, ClrLEDs,delay_ms,Buildup, TIMERSetupconfig, flag,PrintFQ
+                EXTERN    delay, state, StopTime,StopTime, state, PrintLCDs,LCD_CLR,DivP
+
+                RSEG      CODE            
+
+;----------------------------------------------------------------------------------------------
+;            TIME PRINT
+;----------------------------------------------------------------------------------------------
+TimePrint    clr   R7
+             clr   R8
+             push  #'0'
+             push  #'0'
+             push  #':'
+
+             push  #'1'
+             push  #'0'
+             call  #PrintLCDs
+             
+             mov   #54,R8
+Jh1          mov.b #57,R7
+             dec   R8
+             cmp.b #47,R8
+             jz    Jh2
+Jh3          cmp   #1,state
+             jne   Jh2
+             push  R7
+             push  R8
+             push  #':'
+
+             push  #'0'
+             push  #'0'
+             call  #PrintLCDs
+             dec   R7
+             cmp.b #47,R7
+             jz    Jh1
+             jmp   Jh3
+             cmp.b #47,R7
+             jmp   Jh3
+Jh2          call  #LCD_CLR
+             call  #StopTime
+             RET
+;----------------------------------------------------------------------------------------------
+;             Div
+;----------------------------------------------------------------------------------------------                       
+  
+Div         mov    #0x8000,R7
+            clr    R8
+Jh4         inc    R8
+            sub    R12,R7
+            jz     Jh0
+            JN     Jh5
+            jmp    Jh4
+Jh5         dec    R8
+Jh0         rla    R8
+            rla    R8
+            mov    R8,R12
+            RET
+ 
+;----------------------------------------------------------------------------------------------
+;             m-FQ
+;----------------------------------------------------------------------------------------------           
+     
+Mfq         call    #Buildup
+            clr     R12
+            clr     R7
+            clr     R8
+            call    #TIMERSetupconfig
+
+JH11        bis.w   #LPM0+GIE,SR
+            tst.b   flag
+            jne     JH11
+            call    #Div
+            mov     #5,R14
+            
+PrintHere   DivP    R12,#10
+            add     #48,R15
+            push    R15
+            mov     R13,R12
+            dec     R14
+            jnz     PrintHere
+            call    #PrintFQ
+            cmp     #2,state  
+            jne     JH30
+            bic     #CCIFG,TA1CCTL2
+            bis     #CCIE,TA1CCTL2
+            jmp     JH11
+JH30        
+            RET
+            
+            
+PWM
+SetupP1     bis.b   #00Ch,&P1DIR            ; P1.2 and P1.3 outputs
+            bis.b   #00Ch,&P1SEL            ; P1.2 and P1.3 TA1/2 option
+SetupC0     mov.w   #650-1,&CCR0            ; PWM Period
+SetupC1     mov.w   #OUTMOD_7,&CCTL1        ; CCR1 reset/set
+            mov.w   #375,&CCR1              ; CCR1 PWM Duty Cycle	
+SetupTA     mov.w   #TASSEL_1+MC_1,&TACTL   ; ACLK, upmode
+                                            ;					
+Mainloop    bis.w   #LPM3,SR                ; Remain in LPM3
+            nop               
+            
+            ENDMOD             
+               END

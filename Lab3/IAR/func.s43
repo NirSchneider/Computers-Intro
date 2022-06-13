@@ -1,0 +1,81 @@
+#include <msp430g2553.h>     ;define controlled include file
+;-------------------------------------------------------------------------------
+Delay    MACRO  time,multi ; use for delay 1 sec
+         LOCAL  L1,L2
+         MOV.W  multi,R5
+L1       MOV.W  time,R4
+L2       DEC.W  R4
+         JNZ    L2
+         DEC.W  R5
+         JNZ    L1
+         ENDM
+;-------------------------------------------------------------------------------         
+         ORG      0C000h                  ; Program Reset
+;-------------------------------------------------------------------------------
+IDi      DW   1,5,3,1,5,1,4,8      ; positive numbers
+IDj      DW   1,6,0,9,8,0,5,2      ; positive numbers
+ID1_ID2  DW   10,13,0,3,5,8,15,2,6,1,4,14,9,7,12,11
+;-------------------------------------------------------------------------------
+          EXTERN  main
+          PUBLIC  option1,option2,option3,option4
+
+          RSEG CSTACK ; Begins a relocatable segment name of CSTACK - Define stack segment
+          RSEG CODE ; Assemble to Flash memory     
+;-------------------------------------------------------------------------------         
+option1   CLR    R14
+next      MOV.B  R14,&P2OUT
+          CMP.B  #0x01,&P1IN     ; check if changed
+          JNE    main         
+          Delay  #3500,#100     
+          INC.B  R14 
+          JMP    next
+          NOP            ; to remove warnings
+;-------------------------------------------------------------------------------               
+option2   MOV    0xff,R14
+prev      MOV.B  R14,&P2OUT
+          CMP.B  #0x02,&P1IN     ; check if changed
+          JNE    main
+          Delay  #3500,#100        
+          DEC    R14 
+          JMP    prev
+          NOP            ; to remove warnings
+;-------------------------------------------------------------------------------                               
+option3   MOV     #IDi,R14
+          MOV     #IDj,R13
+          MOV.B   #8,R12             
+next2     MOV.B   @R14+,R11
+          ADD     #1,R14
+          MOV.B   @R13+,R10 
+          ADD     #1,R13
+          CMP.B   #0x04, &P1IN     ; check if changed
+          JNE     main
+          MOV.B   R11,&P2OUT 
+          Delay  #3500,#100          
+          MOV.B   R10,&P2OUT
+          Delay  #3500,#100      
+          DEC     R12
+          JZ      option3
+          JMP     next2            
+          NOP            ; to remove warnings
+;-------------------------------------------------------------------------------
+option4   MOV     #ID1_ID2,R14
+          clr R12
+          MOV.B   #16,R13             
+next3     MOV.B   @R14+,R11
+          ADD     #1,R14
+          mov     #0C000h,R12
+          CMP.B   #0x05, &P1IN     ; check if changed
+          JNE     main
+          add     R11,R12
+          add     R11,R12
+          MOV.B   @R12,&P2OUT 
+          Delay   #3500,#100           
+          DEC     R13
+          JZ      option4
+          JMP     next3            
+          NOP            ; to remove warnings
+;-------------------------------------------------------------------------------
+          
+          
+          END
+

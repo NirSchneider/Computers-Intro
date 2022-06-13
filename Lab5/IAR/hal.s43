@@ -1,0 +1,213 @@
+#include "bsp.h"
+
+
+              
+Lcd_cmd     MACRO command
+            call  #Delay5
+            mov.b command,&P2OUT
+            call  #Lcd_stobe
+            ENDM
+              
+Lcd_data    MACRO char 
+            call  #Delay5
+            mov.b #0x00,&P2OUT
+            bis.b #0x40,&P1OUT
+            mov.b char,&P2OUT
+            call  #Lcd_stobe 
+            bic.b #0x40,&P1OUT
+            ENDM
+              
+
+
+                MODULE    HAL
+                PUBLIC    TA0_ISR, TA0_0SR, PORT2_ISR, Delay02, Delay15, Delay5, StopTime, Printing, PrintLCDs, Buildup, Lcd_stobe, CurR, Line2, Line1, LCD_CLR, Lcd_stobe, SysConfig, 
+                EXTERN    TIMERconfig, GPIOconfig;, TIMERconfig, ADCconfig
+                EXTERN    state,flag
+
+                RSEG      CODE
+           
+;----------------------------------------------------------------------------------------------
+;             System configuration  
+;----------------------------------------------------------------------------------------------
+SysConfig
+          CALL   #GPIOconfig
+          ret
+ 
+ ;----------------------------------------------------------------------------------------------
+;             LCD-options 
+;----------------------------------------------------------------------------------------------
+ 
+ 
+LCD_CLR     Lcd_cmd #0x01
+            RET
+            
+Line1       Lcd_cmd #0x02
+            RET
+
+Line2       Lcd_cmd #0xC0
+            RET
+            
+CurR        Lcd_cmd #0x14
+            RET            
+ 
+Lcd_stobe   bis.b #0x20,P1OUT
+            NOP
+            NOP
+            bic.b #0x20,P1OUT
+            RET    
+            
+;----------------------------------------------------------------------------------------------
+;             print buildup  
+;----------------------------------------------------------------------------------------------
+Buildup   call     #LCD_CLR
+          call     #Line1                   ;save return address
+          Lcd_data #'M'   
+          Lcd_data #'e'   
+          Lcd_data #'a'   
+          Lcd_data #'s'   
+          Lcd_data #'u'   
+
+          Lcd_data #'r'   
+          Lcd_data #'e'   
+          Lcd_data #'d'   
+          Lcd_data #' '   ;get delay value
+          Lcd_data #'f'   
+          Lcd_data #'r'   
+
+          Lcd_data #'e'   
+          Lcd_data #'q'   
+          Lcd_data #'u'   
+          Lcd_data #'e' 
+          Lcd_data #'n'
+          call     #Line2
+          Lcd_data #'c'   
+
+          Lcd_data #'y'   
+          Lcd_data #':'   
+          RET
+          
+         
+            
+;----------------------------------------------------------------------------------------------
+;             Print LCD 
+;----------------------------------------------------------------------------------------------
+PrintLCDs
+          call     #TIMERconfig
+          pop      R14
+          mov      #5,R13
+          call     #LCD_CLR
+          call     #Line1
+Printing  pop      R12
+          Lcd_data R12
+          dec      R13
+          jnz      Printing
+          bis.w    #LPM0+GIE,SR
+          push     R14
+          RET
+          
+PrintFQ   call     #Line2
+          call     #CurR
+          call     #CurR
+          call     #CurR
+          mov      #5,R10
+          pop      R9
+Jh20      pop      R11
+          Lcd_data R11
+          dec      R10  
+          jnz      Jh20
+          push     R9
+          RET
+;----------------------------------------------------------------------------------------------
+;             TIME
+;----------------------------------------------------------------------------------------------
+StopTime    mov.w  #TACLR,TACTL
+            mov.w  #MC_0,TACTL
+            RET
+
+Delay5      clr  R5
+            mov.w #1740,R5
+D5          dec.w R5
+            jnz   D5
+            RET
+            
+Delay15     clr  R5
+            mov.w #5240,R5
+D15         dec.w R5
+            jnz   D15
+            RET
+            
+Delay02     clr  R5
+            mov.w #69,R5
+D02         dec.w R5
+            jnz   D02
+            RET  
+             
+            
+;------------------------------------------------------------------------------------------ 
+;               PORT2 Interrupt Service Routine 
+;------------------------------------------------------------------------------------------
+PORT2_ISR    call   #Delay5
+             bit.b  #0x01,PBsArrIntPend            ;check if P2.0 is pushed  
+             jnz    P2_0
+             bit.b  #0x02,PBsArrIntPend            ;check if P2.1 is pushed  
+             jnz    P2_1
+             bit.b  #0x04,PBsArrIntPend            ;check if P2.2 is pushed  
+             jnz    P2_2
+             bit.b  #0x08,PBsArrIntPend            ;check if P2.3 is pushed  
+             jnz    P2_3
+             jmp    exitLPM0                           ;interrupt hapened from another source
+             
+P2_0         mov.b    #1,state
+             bic.b    #0xFF,PBsArrIntPend
+             jmp    exitLPM0
+P2_1         mov.b    #2,state
+             bic.b    #0xFF,PBsArrIntPend
+             jmp    exitLPM0
+P2_2         mov.b    #3,state
+             bic.b    #0xFF,PBsArrIntPend
+             jmp    exitLPM0
+P2_3         mov.b    #4,state
+             bic.b    #0xFF,PBsArrIntPend
+             jmp    exitLPM0   
+exitLPM0     bic    #CPUOFF,0(SP)           ; Exit LMP0
+             bic.b  #0x0f,&PBsArrIntPend  
+             RETI
+             
+             
+;------------------------------------------------------------------------------------------ 
+;               TIMER A0 Interrupt Service Routine 
+;------------------------------------------------------------------------------------------
+TA0_ISR      CALL #TIMERconfig
+             bic    #CPUOFF,0(SP)
+             RETI
+
+;------------------------------------------------------------------------------------------ 
+;                TIMER A1 Interrupt Service Routine 
+;------------------------------------------------------------------------------------------
+TA0_0SR      bic    #CCIFG,TA1CCTL2
+             tst.b  flag
+             jnz    Li1
+             mov    &TA1CCR2,R7
+             xor.b  #0x01,flag
+             bic    #CPUOFF,0(SP)
+             RETI
+            
+Li1          mov    &TA1CCR2,R8
+             mov    R8,R6
+             bic    #CCIE,TA1CCTL2
+             sub    R7,R6
+             jn     Li2
+             xor.b  #0x01,flag
+             bic    #CPUOFF,0(SP)
+             RETI
+             
+Li2          mov    0xFFFF,R6
+             sub    R7,R6
+             add    R8,R6
+             xor.b  #0x01,flag
+             bic    #CPUOFF,0(SP)
+             RETI
+           
+
+                ENDMOD
+                END

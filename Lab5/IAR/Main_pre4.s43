@@ -1,0 +1,102 @@
+#include <msp430g2553.h>     ;define controlled include file
+#include "bsp.h"
+
+            NAME    Main
+           ; PUBLIC state 
+            EXTERN SysConfig, ClrLEDs, PrintLEDs, delay,PrintStr
+            EXTERN Binar, OneLED, PWM,TimePrint 
+            EXTERN TA0_0IAR, TA0_1IAR,Mfq, LCD_CLR
+            
+Debounce     MACRO  cycles
+             LOCAL  L
+             mov.b  cycles,R15     
+L            dec.b  R15                     
+             jnz    L
+             ENDM
+             
+;-------------------------------------------------------------------------------
+            ORG     0C000h                  ; Begins a RAM segment
+;-------------------------------------------------------------------------------
+
+state         dw   0   ;start variable
+flag          dw   0   ;start variable
+;-------------------------------------------------------------------------------
+            RSEG    CSTACK                  ; Begins a relocatable segment name of CSTACK - Define stack segment
+;-------------------------------------------------------------------------------
+            RSEG    CODE                    ; Assemble to Flash memory -like void main in C
+;-----------------------------------------------------------------------------
+
+
+Main         mov.w   #SFE(CSTACK),SP        ; Initialize stack pointer
+StopWDT      mov.w   #WDTPW+WDTHOLD,&WDTCTL  
+             call    #SysConfig
+ 
+        
+;---------------------------- FSM_loop -------------------------------------
+             clr     R9
+state0       cmp     #0,R9                  ;check if state0           
+             jnz     state1
+             call    #LCD_CLR
+             bis.b   #CPUOFF+GIE,SR 
+
+state1       cmp     #1,R9                  ;check if state1                               
+             jnz     state2
+             DINT                           ;disable cutoff (atomic function)
+             call    #TimePrint                 ;infinite function
+             EINT                           ;enable cuoff
+             
+state2       cmp     #2,R9                  ;check if state1                               
+             jnz     state3
+             DINT                           ;disable cutoff (atomic function)
+             call    #Mfq                 ;infinite function
+             EINT                           ;enable cuoff
+             
+                     
+
+state3        cmp     #4,R9                  ;check if state1                               
+             jnz     state3
+             DINT                           ;disable cutoff (atomic function)
+             call    #PWM                 ;infinite function
+             EINT  
+             
+             
+             jmp     state0
+             nop
+
+;------------------------------------------------------------------------------------------ 
+;               PORT2 Interrupt Service Routine  of SW1=P1.0
+;------------------------------------------------------------------------------------------
+PORT2_ISR
+             bit.b  #0x01,&P2IFG            ;check if P2.0 is pushed  
+             jnz    P2_0
+             bit.b  #0x02,&P2IFG            ;check if P2.1 is pushed  
+             jnz    P2_1
+             bit.b  #0x04,&P2IFG            ;check if P2.2 is pushed  
+             jnz    P2_2
+             bit.b  #0x08,&P2IFG            ;check if P2.3 is pushed  
+             jnz    P2_3
+             reti                           ;interrupt hapened from another source
+             
+P2_0         mov.b    #1,state
+             jmp    exitLPM0
+P2_1         mov.b    #2,state
+             jmp    exitLPM0
+P2_2         mov.b    #3,state
+             jmp    exitLPM0
+P2_3         mov.b    #4,state
+exitLPM0     bic    #CPUOFF,0(SP)           ; Exit LMP0
+             bic.b  #0xff,&P2IFG  
+             reti
+             
+;-------------------------------------------------------------------------------------------------------------------------------------------             
+            COMMON  INTVEC                  ; Interrupt Vectors-Begins a common segment with name of INTVEC 
+;-------------------------------------------------------------------------------------------------------------------------------------------
+            ORG     PORT2_VECTOR            ;PORT2 Interrupt Vector
+            DW      PORT2_ISR
+            ORG     RESET_VECTOR            ; MSP430 RESET Vector
+            DW      Main     
+            ORG     TIMER0_A1_VECTOR        
+            DW      TA0_0IAR
+            ORG     TIMER1_A1_VECTOR        
+            DW      TA0_1IAR
+            END
